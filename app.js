@@ -1,9 +1,15 @@
 /**
- * @description function creates a new HTML element with given data
- * @param {Object} data 
- * @returns {HTMLElement} newCard
+ * Global variables
  */
-const createCardReq = (data) => {
+const formVidReqEle = document.getElementById('formVideoRequest');
+const listOfReqEle = document.getElementById('listOfRequests');
+
+/**
+ * @description function creates a new HTML element and appends it to the DOM
+ * @param { Object } data
+ * @param { Boolean } isPrepend
+ */
+const createCardReq = (data, isPrepend) => {
   const newCard = document.createElement('div');
   newCard.innerHTML = `
   <div class="card mb-3">
@@ -12,14 +18,18 @@ const createCardReq = (data) => {
         <h3>${data.topic_title}</h3>
         <p class="text-muted mb-2">${data.topic_details}</p>
         <p class="mb-0 text-muted">
-          ${ data.expected_result &&
-            `<strong>Expected results:</strong> ${data.expected_result}`}
+          ${
+            data.expected_result &&
+            `<strong>Expected results:</strong> ${data.expected_result}`
+          }
         </p>
       </div>
       <div class="d-flex flex-column text-center">
-        <a class="btn btn-link">🔺</a>
-        <h3>0</h3>
-        <a class="btn btn-link">🔻</a>
+        <a id="votes_ups_${data._id}" class="btn btn-link">🔺</a>
+        <h3 id="score_vote_${data._id}">${
+    data.votes.ups - data.votes.downs
+  }</h3>
+        <a id="votes_downs_${data._id}" class="btn btn-link">🔻</a>
       </div>
     </div>
     <div class="card-footer d-flex flex-row justify-content-between">
@@ -38,46 +48,83 @@ const createCardReq = (data) => {
     </div>
   </div>
   `;
-  return newCard;
-};
 
-document.addEventListener("DOMContentLoaded", () => {
-  /**
-   * Global variables
-   */
-  const formVidReqEle = document.getElementById("formVideoRequest");
-  const listOfReqEle = document.getElementById('listOfRequests');
+  isPrepend ? listOfReqEle.prepend(newCard) : listOfReqEle.appendChild(newCard);
+
+  const voteUpsEle = document.getElementById(`votes_ups_${data._id}`);
+  const voteDownsEle = document.getElementById(`votes_downs_${data._id}`);
+  const scoreVoteEle = document.getElementById(`score_vote_${data._id}`);
 
   /**
-   * fetch API to make a GET request 
-   * Gets the video requests from the DB and append it to the DOM
+   * Event listener that listen to click event on the vote UP button
    */
-  fetch("http://localhost:7777/video-request")
-    .then((blob) => blob.json())
-    .then((data) => {
-      data.forEach(data => {
-        listOfReqEle.appendChild(createCardReq(data));
-      });
-    });
-
-  /**
-   * Form event listener on submit
-   * [1] Make a POST request to send the form data to the server
-   * [2] Append the new card to the DOM
-   * [3] reset the form
-   */
-  formVidReqEle.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const formData = new FormData(formVidReqEle);
-
-    fetch("http://localhost:7777/video-request", {
-      method: "POST",
-      body: formData,
+  voteUpsEle.addEventListener('click', (e) => {
+    fetch('http://localhost:7777/video-request/vote', {
+      method: 'PUT',
+      headers: { 'content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: data._id,
+        vote_type: 'ups',
+      }),
     })
       .then((blob) => blob.json())
       .then((data) => {
-          listOfReqEle.prepend(createCardReq(data));
-      })
-      .then(formVidReqEle.reset());
+        scoreVoteEle.innerText = data.ups - data.downs;
+      });
   });
+
+  /**
+   * Event listener that listen to click event on the vote DOWN button
+   */
+  voteDownsEle.addEventListener('click', (e) => {
+    fetch('http://localhost:7777/video-request/vote', {
+      method: 'PUT',
+      headers: { 'content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: data._id,
+        vote_type: 'downs',
+      }),
+    })
+      .then((blob) => blob.json())
+      .then((data) => {
+        scoreVoteEle.innerText = data.ups - data.downs;
+      });
+  });
+};
+
+/**
+ * fetch API to make a GET request
+ * Gets the video requests from the DB and append it to the DOM
+ */
+fetch('http://localhost:7777/video-request')
+  .then((blob) => blob.json())
+  .then((data) => {
+    data.forEach((data) => {
+      createCardReq(data, false);
+    });
+  });
+
+/**
+ * Event listeners
+ */
+
+/**
+ * Form event listener on submit
+ * [1] Make a POST request to send the form data to the server
+ * [2] Prepend the new card to the DOM
+ * [3] reset the form
+ */
+formVidReqEle.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const formData = new FormData(formVidReqEle);
+
+  fetch('http://localhost:7777/video-request', {
+    method: 'POST',
+    body: formData,
+  })
+    .then((blob) => blob.json())
+    .then((data) => {
+      createCardReq(data, true);
+    })
+    .then(formVidReqEle.reset());
 });
